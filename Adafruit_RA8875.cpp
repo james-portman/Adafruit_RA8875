@@ -49,10 +49,14 @@
 /// @endcond
 uint32_t spi_speed = 12000000; /*!< 12MHz */
 /// @cond DISABLE
+#elif defined(__IMXRT1062__) // teensy 4.x
+/// @endcond
+uint32_t spi_speed = 12000000; /*!< 12MHz */
+/// @cond DISABLE
 #else
 /// @endcond
 uint32_t spi_speed = 4000000; /*!< 4MHz */
-                              /// @cond DISABLE
+/// @cond DISABLE
 #endif
 /// @endcond
 
@@ -135,8 +139,12 @@ boolean Adafruit_RA8875::begin(enum RA8875sizes s) {
   /// @endcond
   spi_speed = 2000000;
 /// @cond DISABLE
+#elif defined(__IMXRT1062__) // teensy 4.x
+/// @endcond
+  spi_speed = 2000000;
+/// @cond DISABLE
 #else
-  /// @endcond
+/// @endcond
   spi_speed = 125000;
 /// @cond DISABLE
 #endif
@@ -160,7 +168,9 @@ boolean Adafruit_RA8875::begin(enum RA8875sizes s) {
 #ifdef SPI_HAS_TRANSACTION
 /// @cond DISABLE
 #if defined(ARDUINO_ARCH_ARC32)
-  /// @endcond
+/// @endcond
+  spi_speed = 12000000L;
+#elif defined(__IMXRT1062__) // teensy 4.x
   spi_speed = 12000000L;
 #else
   spi_speed = 4000000L;
@@ -679,6 +689,23 @@ void Adafruit_RA8875::drawPixel(int16_t x, int16_t y, uint16_t color) {
   digitalWrite(_cs, HIGH);
 }
 
+void Adafruit_RA8875::drawPixelToScreen(int16_t x, int16_t y, uint16_t color) {
+  x = applyRotationX(x);
+  y = applyRotationY(y);
+
+  writeReg(RA8875_CURH0, x);
+  writeReg(RA8875_CURH1, x >> 8);
+  writeReg(RA8875_CURV0, y);
+  writeReg(RA8875_CURV1, y >> 8);
+  writeCommand(RA8875_MRWC);
+  digitalWrite(_cs, LOW);
+  SPI.transfer(RA8875_DATAWRITE);
+  SPI.transfer(color >> 8);
+  SPI.transfer(color);
+  digitalWrite(_cs, HIGH);
+}
+
+
 /**************************************************************************/
 /*!
  Draws a series of pixels at the specified location without the overhead
@@ -712,6 +739,9 @@ void Adafruit_RA8875::drawPixels(uint16_t *p, uint32_t num, int16_t x,
     SPI.transfer16(*p++);
   }
   digitalWrite(_cs, HIGH);
+}
+void Adafruit_RA8875::writeRectToScreen(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *pcolors) {
+  drawPixels(pcolors, w*h, x, y);
 }
 
 /**************************************************************************/

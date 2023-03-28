@@ -162,7 +162,9 @@ public:
 
   /* Adafruit_GFX functions */
   void drawPixel(int16_t x, int16_t y, uint16_t color);
+  void drawPixelToScreen(int16_t x, int16_t y, uint16_t color);
   void drawPixels(uint16_t *p, uint32_t count, int16_t x, int16_t y);
+  void writeRectToScreen(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *pcolors);
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
   void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
 
