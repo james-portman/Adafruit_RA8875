@@ -153,6 +153,7 @@ public:
   void textEnlarge(uint8_t scale);
   void textWrite(const char *buffer, uint16_t len = 0);
   void cursorBlink(uint8_t rate);
+  void disableCursor();
 
   /* Graphics functions */
   void graphicsMode(void);

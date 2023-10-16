@@ -518,6 +518,13 @@ void Adafruit_RA8875::cursorBlink(uint8_t rate) {
   writeData(rate);
 }
 
+void Adafruit_RA8875::disableCursor() {
+  writeCommand(RA8875_MWCR0);
+  uint8_t temp = readData();
+  temp &= 0b10011111;
+  writeData(temp);
+}
+
 /**************************************************************************/
 /*!
       Renders some text on the screen when in text mode
