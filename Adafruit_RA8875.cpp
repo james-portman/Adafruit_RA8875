@@ -378,6 +378,7 @@ void Adafruit_RA8875::textMode(void) {
   temp = readData();
   temp &= ~((1 << 7) | (1 << 5)); // Clear bits 7 and 5
   writeData(temp);
+  _textMode = true;
 }
 
 /**************************************************************************/
@@ -570,6 +571,7 @@ void Adafruit_RA8875::graphicsMode(void) {
   uint8_t temp = readData();
   temp &= ~RA8875_MWCR0_TXTMODE; // bit #7
   writeData(temp);
+  _textMode = false;
 }
 
 /**************************************************************************/
@@ -1841,3 +1843,112 @@ void Adafruit_RA8875::writeCalibration(int location, tsMatrix_t *matrixPtr) {
 /// @cond DISABLE
 #endif
 /// @endcond
+
+
+/**************************************************************************/
+/*!
+
+*/
+/**************************************************************************/
+
+void Adafruit_RA8875::BTE_moveFrom(int16_t SX,int16_t SY)
+{
+  writeReg(RA8875_HSBE0,SX & 0xFF);
+  writeReg(RA8875_HSBE0+1,SX >> 8);
+  writeReg(RA8875_VSBE0,SY & 0xFF);
+  writeReg(RA8875_VSBE0+1,SY >> 8);
+} 
+
+/**************************************************************************/
+/*!
+
+*/
+/**************************************************************************/
+
+void Adafruit_RA8875::BTE_moveTo(int16_t DX,int16_t DY)
+{
+  writeReg(RA8875_HDBE0,DX & 0xFF);
+  writeReg(RA8875_HDBE0+1,DX >> 8);
+  writeReg(RA8875_VDBE0,DY & 0xFF);
+  writeReg(RA8875_VDBE0+1,DY >> 8);
+} 
+
+/**************************************************************************/
+/*!
+
+*/
+/**************************************************************************/
+// see page 175 of doc
+void Adafruit_RA8875::BTE_move(int16_t SourceX, int16_t SourceY, int16_t Width, int16_t Height, int16_t DestX, int16_t DestY, uint8_t SourceLayer, uint8_t DestLayer)
+{
+  
+  // if (SourceLayer == 0) SourceLayer = _currentLayer;  
+  // if (DestLayer == 0) DestLayer = _currentLayer;
+  // if (SourceLayer == 2) SourceY |= 0x8000; //set the high bit of the vertical coordinate to indicate layer 2
+  // if (DestLayer == 2) DestY |= 0x8000; //set the high bit of the vertical coordinate to indicate layer 2
+  uint8_t ROP = 0;
+  ROP |= 0x02; //standard block-move operation - is it??
+  // ROP |= 0b11000000; // this means write the source data to dest
+  ROP |= 0xA;
+
+  _waitBusy(0x40); //Check that another BTE operation is not still in progress
+  BTE_moveFrom(SourceX, SourceY);
+  BTE_size(Width, Height);
+  BTE_moveTo(DestX, DestY);
+  BTE_ropcode(ROP);
+  //Execute BTE! (This selects linear addressing mode for the monochrome source data)
+  writeReg(RA8875_BECR0, 0x80);
+  // writeReg(RA8875_BECR0, 0b11100000);
+  _waitBusy(0x40);
+  //we are supposed to wait for the thing to become unbusy
+  //caller can call _waitBusy(0x40) to check the BTE busy status (except it's private)
+
+  // TODO: read BTE reg and check bit 7 - 0 = idle, 1 = busy
+}
+
+/**************************************************************************/
+/*!
+  Just another specified wait routine until job it's done
+  Parameters:
+  res:
+  0x80(for most operations),
+  0x40(BTE wait), 
+  0x01(DMA wait)
+*/
+/**************************************************************************/
+void Adafruit_RA8875::_waitBusy(uint8_t res) 
+{
+  uint8_t temp;   
+  unsigned long start = millis();//M.Sandercock
+  do {
+    if (res == 0x01) writeCommand(RA8875_DMACR);//dma
+    temp = readStatus();
+    if ((millis() - start) > 10) return;
+  } while ((temp & res) == res);
+}
+
+
+/**************************************************************************/
+/*! TESTING
+  Use a ROP code EFX
+*/
+/**************************************************************************/
+void Adafruit_RA8875::BTE_ropcode(unsigned char setx)
+{
+    writeReg(RA8875_BECR1,setx);//BECR1    
+}
+
+/**************************************************************************/
+/*! TESTING
+
+*/
+/**************************************************************************/
+void Adafruit_RA8875::BTE_size(int16_t w, int16_t h)
+{
+  //0.69b21 -have to check this, not verified
+  if (_portrait) swapvals(w,h);
+    writeReg(RA8875_BEWR0,w & 0xFF);//BET area width literacy  
+    writeReg(RA8875_BEWR0+1,w >> 8);//BET area width literacy    
+    writeReg(RA8875_BEHR0,h & 0xFF);//BET area height literacy
+    writeReg(RA8875_BEHR0+1,h >> 8);//BET area height literacy     
+} 

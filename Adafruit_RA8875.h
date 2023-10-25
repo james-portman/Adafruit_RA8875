@@ -32,6 +32,14 @@
 #include <pgmspace.h>
 #endif
 
+#if !defined(swapvals)
+  #if defined(__XTENSA__)
+    #define swapvals(a, b) { int16_t t = a; a = b; b = t; }
+  #else
+    #define swapvals(a, b) { typeof(a) t = a; a = b; b = t; }
+  #endif
+#endif
+
 /// @cond DISABLE
 #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega1280__) ||              \
     defined(__AVR_ATmega2560__) || defined(ESP8266) || defined(ESP32) ||       \
@@ -236,6 +244,18 @@ public:
   void setRotation(int8_t rotation);
   int8_t getRotation(void);
 
+
+  void _waitBusy(uint8_t res=0x80);//0x80, 0x40(BTE busy), 0x01(DMA busy)
+  void BTE_moveFrom(int16_t SX,int16_t SY);
+  void BTE_moveTo(int16_t DX,int16_t DY);
+  void BTE_move(int16_t SourceX, int16_t SourceY, int16_t Width, int16_t Height, int16_t DestX, int16_t DestY, uint8_t SourceLayer, uint8_t DestLayer);
+  void BTE_ropcode(unsigned char setx);//
+  void BTE_size(int16_t w, int16_t h);
+
+  uint8_t _currentLayer = 0;
+  volatile bool _textMode;
+  bool _portrait = false;
+
 #ifndef USE_ADAFRUIT_GFX_FONTS
   /**************************************************************************/
   /*!
@@ -313,6 +333,7 @@ private:
 #define RA8875_MAGENTA 0xF81F ///< Magenta Color
 #define RA8875_YELLOW 0xFFE0  ///< Yellow Color
 #define RA8875_WHITE 0xFFFF   ///< White Color
+#define RA8875_GREY 0b0010000100000100
 
 // Command/Data pins for SPI
 #define RA8875_DATAWRITE 0x00 ///< See datasheet
@@ -521,4 +542,84 @@ private:
 #define RA8875_SCROLL_LAYER2 0x80 ///< See datasheet
 #define RA8875_SCROLL_BUFFER 0xC0 ///< See datasheet
 
+#define RA8875_DMACR          0xBF//DMA Configuration REG
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//              Block Transfer Engine(BTE) Control Registers
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#define RA8875_BECR0                0x50//BTE Function Control Register 0
+#define RA8875_BECR1                0x51//BTE Function Control Register 1
+/* Layer Transparency Register 0     [0x52]
+----- Bit 7,6 (Layer1/2 Scroll Mode)
+00: Layer 1/2 scroll simultaneously
+01: Only Layer 1 scroll
+10: Only Layer 2 scroll
+11: Buffer scroll (using Layer 2 as scroll buffer)
+----- Bit 5 (Floating Windows Transparency Display With BGTR)
+0:disable, 1:enable
+----- Bit 4,3 (na)
+----- Bit 2,1,0(Layer1/2 Display Mode) 
+000: Only Layer 1 is visible
+001: Only Layer 2 is visible
+010: Lighten-overlay mode
+011: Transparent mode
+100: Boolean OR
+101: Boolean AND
+110: Floating window mode
+111: Reserve */
+#define RA8875_LTPR0                0x52//Layer Transparency Register 0
+/* Layer Transparency Register 1     [0x53]
+----- Bit 7,6,5,4 (Layer Transparency Setting for Layer 2)
+0000: Total display
+0001: 7/8 display
+0010: 3/4 display
+0011: 5/8 display
+0100: 1/2 display
+0101: 3/8 display
+0110: 1/4 display
+0111: 1/8 display
+1000: Display disable
+----- Bit 3,2,1,0 (Layer Transparency Setting for Layer 1)
+0000: Total display
+0001: 7/8 display
+0010: 3/4 display
+0011: 5/8 display
+0100: 1/2 display
+0101: 3/8 display
+0110: 1/4 display
+0111: 1/8 display
+1000: Display disable */
+#define RA8875_LTPR1                0x53//Layer Transparency Register 1
+#define RA8875_HSBE0          0x54//Horizontal Source Point 0 of BTE
+//#define RA8875_HSBE1          0x55//Horizontal Source Point 1 of BTE
+#define RA8875_VSBE0          0x56//Vertical Source Point 0 of BTE
+//#define RA8875_VSBE1          0x57//Vertical Source Point 1 of BTE
+#define RA8875_HDBE0          0x58//Horizontal Destination Point 0 of BTE
+//#define RA8875_HDBE1          0x59//Horizontal Destination Point 1 of BTE
+#define RA8875_VDBE0          0x5A//Vertical Destination Point 0 of BTE
+//#define RA8875_VDBE1          0x5B//Vertical Destination Point 1 of BTE
+#define RA8875_BEWR0          0x5C//BTE Width Register 0
+//#define RA8875_BEWR1          0x5D//BTE Width Register 1
+#define RA8875_BEHR0          0x5E//BTE Height Register 0
+//#define RA8875_BEHR1          0x5F//BTE Height Register 1
+
+/* Pattern Set No for BTE            [0x66]
+----- Bit 7 (Pattern Format)
+0: 8x8
+1: 16x16
+----- Bit 6,5,4 (na)
+----- Bit 3,2,1,0 (Pattern Set No)
+If pattern Format = 8x8 then Pattern Set [3:0]
+If pattern Format = 16x16 then Pattern Set [1:0] is valid */
+#define RA8875_PTNO             0x66//Pattern Set No for BTE
+
+//BTE Raster OPerations - there's 16 possible operations but these are the main ones likely to be useful
+#define RA8875_BTEROP_SOURCE  0xC0  //Overwrite dest with source (no mixing) *****THIS IS THE DEFAULT OPTION****
+#define RA8875_BTEROP_BLACK   0xo0  //all black
+#define RA8875_BTEROP_WHITE   0xf0  //all white
+#define RA8875_BTEROP_DEST    0xA0    //destination unchanged
+#define RA8875_BTEROP_ADD   0xE0    //ADD (brighter)
+#define RA8875_BTEROP_SUBTRACT  0x20  //SUBTRACT (darker)
+
+#define RA8875_DPCR 0x20 // display config register
 #endif
