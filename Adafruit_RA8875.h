@@ -334,6 +334,7 @@ private:
 #define RA8875_YELLOW 0xFFE0  ///< Yellow Color
 #define RA8875_WHITE 0xFFFF   ///< White Color
 #define RA8875_GREY 0b0010000100000100
+#define RA8875_ORANGE 0b1111101001100000
 
 // Command/Data pins for SPI
 #define RA8875_DATAWRITE 0x00 ///< See datasheet
